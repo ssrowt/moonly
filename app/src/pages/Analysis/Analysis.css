@@ -1,0 +1,118 @@
+.analysis-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.analysis-time {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+  margin-bottom: 4px;
+}
+
+/* Sentiment hero card */
+.analysis-sentiment {
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.analysis-sentiment::after {
+  content: '';
+  position: absolute;
+  bottom: -30px; right: -30px;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: .25;
+}
+
+.analysis-sentiment--bullish {
+  border-left: 3px solid var(--bullish);
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(34,197,94,.05) 100%);
+}
+.analysis-sentiment--bullish::after { background: var(--bullish); }
+
+.analysis-sentiment--bearish {
+  border-left: 3px solid var(--bearish);
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(239,68,68,.05) 100%);
+}
+.analysis-sentiment--bearish::after { background: var(--bearish); }
+
+.analysis-sentiment--neutral {
+  border-left: 3px solid var(--text-muted);
+}
+
+.analysis-sentiment__label { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+.analysis-sentiment__value { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 14px; }
+
+.analysis-fg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-sec);
+}
+.analysis-fg__bar {
+  flex: 1;
+  height: 5px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.analysis-fg__fill {
+  height: 100%;
+  background: linear-gradient(to right, var(--bearish), var(--warning), var(--bullish));
+  border-radius: 3px;
+}
+.analysis-fg__val { font-size: 13px; font-weight: 700; min-width: 24px; text-align: right; }
+
+/* Risk */
+.risk-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.badge-risk-low    { background: var(--bullish-bg); color: var(--bullish); }
+.badge-risk-medium { background: var(--warning-bg); color: var(--warning); }
+.badge-risk-high   { background: var(--bearish-bg); color: var(--bearish); }
+.risk-note { font-size: 13px; color: var(--text-sec); margin-top: 8px; line-height: 1.5; }
+
+/* Insights */
+.insights-list { display: flex; flex-direction: column; gap: 8px; }
+.insight-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 14px;
+  color: var(--text-sec);
+  line-height: 1.6;
+  padding: 14px;
+}
+.insight-icon { flex-shrink: 0; font-size: 16px; margin-top: 1px; }
+
+/* Opportunities */
+.opp-card { margin-top: 8px; }
+.opp-card__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+.opp-symbol {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+.opp-rank {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-card2);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.opp-reason { font-size: 13px; color: var(--text-sec); line-height: 1.5; }

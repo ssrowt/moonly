@@ -1,0 +1,102 @@
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  height: calc(var(--tab-h) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: rgba(8, 13, 23, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  z-index: 100;
+}
+
+.tabbar__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--text-muted);
+  transition: color .2s;
+  position: relative;
+  padding-top: 2px;
+}
+
+.tabbar__item--active {
+  color: var(--accent);
+}
+
+/* Active glow dot above icon */
+.tabbar__item--active::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+/* Unified icon container — same size for all tabs */
+.tabbar__moon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Moon icon sizing */
+.tabbar__moon .moon-icon {
+  width: 28px;
+  height: 28px;
+  padding: 2px;
+  border-radius: 6px;
+  box-shadow: none;
+  border: none;
+  background: transparent;
+}
+
+/* Active background on the container — applies to ALL icons */
+.tabbar__item--active .tabbar__moon {
+  background: linear-gradient(145deg, #0d1730 0%, #111e3a 100%);
+  box-shadow: 0 0 10px rgba(79,142,247,.3);
+  border: 1px solid rgba(79,142,247,.2);
+  border-radius: 8px;
+}
+
+/* Moon icon inherits container bg, no double styling */
+.tabbar__item--active .tabbar__moon .moon-icon {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+}
+
+/* All SVG icons inside container fill it uniformly */
+.tabbar__moon svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Moon icon is slightly bigger */
+.tabbar__moon .moon-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.tabbar__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 1;
+}

@@ -1,0 +1,178 @@
+/* ─── User card ──────────────────────────────────────────────────────────── */
+.profile-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+}
+
+.profile-avatar {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 20px rgba(79,142,247,.25);
+}
+
+.profile-info { display: flex; flex-direction: column; gap: 4px; }
+.profile-name { font-size: 19px; font-weight: 800; letter-spacing: -0.3px; }
+.profile-username { font-size: 13px; color: var(--text-sec); }
+.profile-plan-badge { margin-top: 4px; align-self: flex-start; }
+
+/* ─── Subscription status ────────────────────────────────────────────────── */
+.sub-status__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sub-status__days { font-size: 13px; color: var(--text-sec); margin-top: 6px; }
+
+/* ─── Plan cards ─────────────────────────────────────────────────────────── */
+.plan-card { margin-top: 8px; padding: 18px; transition: border-color .2s; }
+
+.plan-card--active.plan-card--pro  { border-color: var(--accent); }
+.plan-card--active.plan-card--luxe {
+  border-color: var(--warning);
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(245,158,11,.04) 100%);
+}
+
+.plan-card--type-luxe { position: relative; overflow: hidden; }
+.plan-card--type-luxe::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--warning), transparent);
+}
+
+.plan-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.plan-card__name {
+  font-size: 17px;
+  font-weight: 800;
+  display: block;
+  letter-spacing: -0.2px;
+}
+.plan-card__period {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  display: block;
+  font-weight: 500;
+}
+
+.plan-card__current {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-glow);
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+}
+.plan-card--type-luxe .plan-card__current {
+  color: var(--warning);
+  background: var(--warning-bg);
+}
+
+.plan-card__features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.plan-card__features li {
+  font-size: 13px;
+  color: var(--text-sec);
+  padding-left: 18px;
+  position: relative;
+  line-height: 1.4;
+}
+.plan-card__features li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--bullish);
+  font-weight: 800;
+}
+
+/* ─── Referral ───────────────────────────────────────────────────────────── */
+.referral-card { padding: 18px; }
+.referral-card__desc { font-size: 13px; color: var(--text-sec); margin-bottom: 14px; line-height: 1.5; }
+
+.referral-link-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.referral-link {
+  flex: 1;
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-sec);
+  word-break: break-all;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  line-height: 1.4;
+}
+
+.referral-copy {
+  width: auto;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.referral-copy--done {
+  color: var(--bullish);
+  background: var(--bullish-bg);
+}
+
+.referral-count {
+  font-size: 13px;
+  color: var(--text-sec);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* ─── Language toggle ────────────────────────────────────────────────────── */
+.lang-toggle {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+}
+
+.lang-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card2);
+  color: var(--text-sec);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.lang-btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 12px var(--accent-glow);
+}

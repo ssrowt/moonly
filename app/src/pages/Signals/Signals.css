@@ -1,0 +1,380 @@
+/* ─── Signals subheader ───────────────────────────────────────────────────── */
+.signals-subheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.signals-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  padding: 3px 9px;
+  border-radius: 20px;
+}
+
+.signals-list { display: flex; flex-direction: column; gap: 10px; }
+
+/* ─── Signal card ────────────────────────────────────────────────────────── */
+.signal-card {
+  cursor: pointer;
+  transition: border-color .2s, transform .15s;
+  border-left: 3px solid var(--border);
+  padding-left: 14px;
+}
+
+.signal-card:active {
+  transform: scale(.985);
+}
+
+.signal-card--bullish {
+  border-left-color: var(--bullish);
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(34,197,94,.03) 100%);
+}
+
+.signal-card--bearish {
+  border-left-color: var(--bearish);
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(239,68,68,.03) 100%);
+}
+
+.signal-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.signal-card__symbol {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: var(--text);
+}
+
+.signal-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.signal-card__conf {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-sec);
+}
+
+.signal-card__tf {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-card2);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.signal-card__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+/* ─── Locked card ────────────────────────────────────────────────────────── */
+.signal-card--locked {
+  opacity: .55;
+  border-left-color: var(--border);
+  cursor: pointer;
+}
+
+.signal-card__locked-overlay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-sec);
+}
+
+/* ─── Status dot ─────────────────────────────────────────────────────────── */
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.status-dot::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--dot-color, var(--text-muted));
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ─── Expand arrow ───────────────────────────────────────────────────────── */
+.signal-card__expand {
+  font-size: 9px;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* ─── Refresh button ─────────────────────────────────────────────────────── */
+.btn-refresh {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.btn-refresh:hover { opacity: .8; }
+.btn-refresh:disabled { opacity: .5; cursor: default; }
+
+/* ─── Live signal price levels ───────────────────────────────────────────── */
+.live-levels {
+  display: flex;
+  gap: 0;
+  margin: 10px 0 8px;
+  background: var(--bg-card2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.live-level {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  gap: 3px;
+  border-right: 1px solid var(--border);
+}
+.live-level:last-child { border-right: none; }
+
+.live-level .level-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.live-level .level-value {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Live stats row ─────────────────────────────────────────────────────── */
+.live-stats {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.live-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.live-stat__label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.live-stat__value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-sec);
+}
+
+/* ─── Fresh badge ────────────────────────────────────────────────────────── */
+.badge-fresh {
+  background: rgba(91, 142, 247, 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(91, 142, 247, 0.3);
+}
+
+/* ─── Risk badge ─────────────────────────────────────────────────────────── */
+.badge-risk {
+  background: rgba(255, 160, 50, 0.15);
+  color: #ffa032;
+  border: 1px solid rgba(255, 160, 50, 0.35);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+/* ─── Risk warning block ─────────────────────────────────────────────────── */
+.risk-warning {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 160, 50, 0.08);
+  border: 1px solid rgba(255, 160, 50, 0.25);
+  border-radius: 8px;
+  font-size: 11px;
+  color: #ffa032;
+  line-height: 1.5;
+}
+
+/* ─── AI Analysis block ──────────────────────────────────────────────────── */
+.live-analysis {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.live-analysis__label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.live-analysis__text {
+  font-size: 13px;
+  color: var(--text-sec);
+  line-height: 1.6;
+  margin-top: 5px;
+  font-style: italic;
+}
+
+/* ─── Signal Detail ──────────────────────────────────────────────────────── */
+.detail-back {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: .85;
+  transition: opacity .15s;
+}
+.detail-back:hover { opacity: 1; }
+
+/* Hero header */
+.detail-hero {
+  background: linear-gradient(160deg, var(--bg-card2) 0%, var(--bg-card) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.detail-hero::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 140px; height: 140px;
+  border-radius: 50%;
+  background: var(--accent-glow);
+  pointer-events: none;
+}
+
+.detail-symbol {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  margin-bottom: 10px;
+}
+
+.detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.detail-tf {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-card3);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+/* Levels */
+.detail-levels { margin-bottom: 10px; }
+
+.level-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+}
+
+.level-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.level-value {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.3px;
+}
+
+.level-entry { color: var(--text); }
+.level-sl    { color: var(--bearish); }
+.level-tp    { color: var(--bullish); }
+
+/* Confidence */
+.conf-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.conf-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.conf-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.conf-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .5s ease;
+}
+
+/* AI summary */
+.detail-ai__text {
+  color: var(--text-sec);
+  font-size: 14px;
+  line-height: 1.7;
+  margin-top: 6px;
+  font-style: italic;
+}

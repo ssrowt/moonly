@@ -1,0 +1,84 @@
+.bg-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/* ─── Stars SVG ──────────────────────────────────────────────────────────── */
+.bg-stars {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.star {
+  animation: starTwinkle var(--dur, 3s) ease-in-out infinite alternate;
+}
+
+.star--bright {
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.9));
+}
+
+.star-halo {
+  animation: starTwinkle var(--dur, 3s) ease-in-out infinite alternate;
+}
+
+@keyframes starTwinkle {
+  0%   { opacity: var(--o, 0.4); transform: scale(1); }
+  50%  { opacity: calc(var(--o, 0.4) * 0.4); transform: scale(0.85); }
+  100% { opacity: var(--o, 0.4); transform: scale(1.15); }
+}
+
+/* ─── Rotating shimmer beam ─────────────────────────────────────────────── */
+.bg-shimmer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150vmax;
+  height: 150vmax;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    transparent            0deg,
+    rgba(255,255,255,0.032) 15deg,
+    rgba(180,200,255,0.018) 28deg,
+    transparent            42deg,
+    transparent            185deg,
+    rgba(255,255,255,0.022) 200deg,
+    transparent            215deg
+  );
+  animation: shimmerSpin 28s linear infinite;
+}
+
+@keyframes shimmerSpin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* ─── Soft glow orb (top-center) ────────────────────────────────────────── */
+.bg-orb {
+  position: absolute;
+  top: -10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70vw;
+  max-width: 420px;
+  height: 70vw;
+  max-height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(91, 142, 247, 0.12) 0%,
+    rgba(120, 90, 220, 0.06) 40%,
+    transparent 70%
+  );
+  animation: orbPulse 6s ease-in-out infinite;
+}
+
+@keyframes orbPulse {
+  0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
+  50%       { opacity: 1;   transform: translateX(-50%) scale(1.08); }
+}
