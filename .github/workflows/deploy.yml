@@ -25,6 +25,8 @@ jobs:
 
       - name: Build
         working-directory: app
+        env:
+          VITE_API_URL: https://moonly.onrender.com
         run: npm run build
 
       - name: Deploy to GitHub Pages
