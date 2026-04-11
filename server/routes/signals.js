@@ -82,7 +82,9 @@ router.get('/live', validateTelegramInitData, async (req, res) => {
   const externalPlan = PLAN_EXTERNAL[userPlan] ?? 'free';
 
   try {
-    const response = await fetch(`${SIGNALS_BASE}/signals?plan=${externalPlan}`);
+    const response = await fetch(`${SIGNALS_BASE}/signals?plan=${externalPlan}`, {
+      signal: AbortSignal.timeout(60_000),
+    });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     if (!data.ok) throw new Error(data.error || 'API error');

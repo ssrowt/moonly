@@ -23,12 +23,14 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const referralCode = params.get('start') ?? undefined;
 
-    api.post('/api/auth/register', {
-      user: tgUser ?? { id: 1, username: 'devuser', first_name: 'Dev' },
-      referral_code: referralCode,
-    })
-      .catch(() => {})
-      .finally(() => setReady(true));
+    const timeout = new Promise<void>(resolve => setTimeout(resolve, 8000));
+    Promise.race([
+      api.post('/api/auth/register', {
+        user: tgUser ?? { id: 1, username: 'devuser', first_name: 'Dev' },
+        referral_code: referralCode,
+      }).catch(() => {}),
+      timeout,
+    ]).finally(() => setReady(true));
   }, []);
 
   if (!ready) {
