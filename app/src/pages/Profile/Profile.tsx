@@ -13,6 +13,7 @@ export default function Profile() {
   const [plans, setPlans] = useState<PlanInfo[]>([]);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [activating, setActivating] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,7 +24,7 @@ export default function Profile() {
       setUser(profileRes.profile);
       setSub(subRes.subscription);
       setPlans(subRes.plans);
-    }).catch(() => {})
+    }).catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -63,7 +64,14 @@ export default function Profile() {
     <div className="page"><div className="state-center"><div className="spinner" /></div></div>
   );
 
-  if (!user || !sub) return null;
+  if (loadError || (!user || !sub)) return (
+    <div className="page">
+      <div className="state-center">
+        <span style={{ fontSize: 36 }}>⚠️</span>
+        <p style={{ fontSize: 14 }}>{T.market_unavail}</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="page">

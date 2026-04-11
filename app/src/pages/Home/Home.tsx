@@ -34,7 +34,7 @@ export default function Home() {
         </div>
       )}
 
-      {data && (
+      {data && data.coins?.length > 0 && data.btcChart && (
         <>
           <p className="section-title">{T.btc_chart}</p>
           <div className="card home-chart-card">
