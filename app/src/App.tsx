@@ -23,7 +23,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const referralCode = params.get('start') ?? undefined;
 
-    const timeout = new Promise<void>(resolve => setTimeout(resolve, 8000));
+    const timeout = new Promise<void>(resolve => setTimeout(resolve, 5000));
     Promise.race([
       api.post('/api/auth/register', {
         user: tgUser ?? { id: 1, username: 'devuser', first_name: 'Dev' },
