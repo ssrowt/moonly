@@ -4,15 +4,19 @@ import { useLang } from '../../i18n/LangContext';
 import type { MarketData, MarketCoin } from '../../types';
 import './Home.css';
 
+// Module-level cache — survives component unmount/remount
+let _cache: MarketData | null = null;
+
 export default function Home() {
   const { T, lang } = useLang();
-  const [data, setData] = useState<MarketData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<MarketData | null>(_cache);
+  const [loading, setLoading] = useState(!_cache);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (_cache) return; // already have data, skip fetch
     api.get<MarketData>('/api/market')
-      .then(d => setData(d))
+      .then(d => { _cache = d; setData(d); })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
