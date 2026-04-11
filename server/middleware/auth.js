@@ -66,10 +66,15 @@ function validateTelegramInitData(req, res, next) {
     return res.status(401).json({ ok: false, error: 'Invalid user data in initData' });
   }
 
-  // Load user from DB
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(telegramUser.id);
+  // Load user from DB — auto-create if not found (e.g. after server restart)
+  let user = db.prepare('SELECT * FROM users WHERE id = ?').get(telegramUser.id);
   if (!user) {
-    return res.status(401).json({ ok: false, error: 'User not registered. Call /api/auth/register first.' });
+    upsertUser({
+      id: telegramUser.id,
+      username: telegramUser.username,
+      first_name: telegramUser.first_name,
+    });
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(telegramUser.id);
   }
 
   req.user = checkPlanExpiry(user);
