@@ -75,7 +75,7 @@ router.get('/', validateTelegramInitData, (req, res) => {
  * FREE=5 signals, PRO=10, LUXE=20 + analysis field.
  */
 const PLAN_EXTERNAL  = { FREE: 'free', PRO: 'pro', LUXE: 'deluxe' };
-const SIGNALS_BASE   = process.env.SIGNALS_API_URL || 'http://localhost:8000';
+const SIGNALS_BASE   = process.env.SIGNALS_API_URL || 'https://moonly-1.onrender.com';
 
 router.get('/live', validateTelegramInitData, async (req, res) => {
   const userPlan     = req.user.plan;
