@@ -1,11 +1,11 @@
 """
-Live price streaming via Binance WebSocket miniTicker.
+Live price streaming via Bybit WebSocket v5 public tickers.
 
 Architecture:
-  _binance_listener()  — connects to Binance WS, writes updates to _prices dict
-  _broadcast_loop()    — every second, pushes full snapshot to connected clients
-  REST GET /prices     — instant snapshot from cache (no WS required by clients)
-  WS  /ws/prices       — push-based: sends snapshot every second to connected clients
+  _bybit_listener()   — connects to Bybit WS, writes updates to _prices dict
+  _broadcast_loop()   — every second, pushes full snapshot to connected clients
+  REST GET /prices    — instant snapshot from cache (no WS required by clients)
+  WS  /ws/prices      — push-based: sends snapshot every second to connected clients
 """
 
 import asyncio
@@ -18,7 +18,7 @@ from fastapi import WebSocket
 
 logger = logging.getLogger("moonly.prices")
 
-BINANCE_WS = "wss://stream.binance.com:9443/stream"
+BYBIT_WS = "wss://stream.bybit.com/v5/public/linear"
 
 # ─── Shared state ─────────────────────────────────────────────────────────────
 
@@ -50,45 +50,63 @@ def remove_client(ws: WebSocket) -> None:
 
 # ─── Background tasks ─────────────────────────────────────────────────────────
 
-async def _binance_listener(symbols: list[str]) -> None:
+async def _bybit_listener(symbols: list[str]) -> None:
     """
-    Connects to Binance combined miniTicker stream for all symbols.
-    Writes price updates into _prices dict.
+    Connects to Bybit v5 public linear WebSocket.
+    Subscribes to tickers for all symbols, writes updates into _prices dict.
     Reconnects automatically on any error.
     """
-    streams = "/".join(f"{s.lower()}@miniTicker" for s in symbols)
-    url = f"{BINANCE_WS}?streams={streams}"
+    args = [f"tickers.{s}" for s in symbols]
 
     while True:
         try:
             async with websockets.connect(
-                url,
+                BYBIT_WS,
                 ping_interval=20,
                 ping_timeout=10,
                 open_timeout=15,
             ) as ws:
-                logger.info("Binance WS connected — tracking %d symbols", len(symbols))
+                # Subscribe to all tickers in one message
+                await ws.send(json.dumps({"op": "subscribe", "args": args}))
+                logger.info("Bybit WS connected — tracking %d symbols", len(symbols))
+
                 async for raw in ws:
                     try:
-                        data = json.loads(raw)
-                        p = data.get("data", {})
-                        sym = p.get("s")
+                        msg = json.loads(raw)
+
+                        # Skip subscription confirmations and heartbeats
+                        if "topic" not in msg:
+                            continue
+
+                        data = msg.get("data", {})
+                        sym = data.get("symbol")
                         if not sym:
                             continue
-                        _prices[sym] = {
-                            "symbol":    sym,
-                            "price":     float(p["c"]),   # last close
-                            "open":      float(p["o"]),   # 24h open
-                            "high":      float(p["h"]),   # 24h high
-                            "low":       float(p["l"]),   # 24h low
-                            "change24h": float(p["P"]),   # 24h % change
-                            "volume":    float(p["q"]),   # 24h quote volume (USDT)
-                        }
+
+                        # For delta messages, only update fields that are present
+                        entry = _prices.get(sym, {"symbol": sym})
+
+                        if "lastPrice" in data:
+                            entry["price"] = float(data["lastPrice"])
+                        if "highPrice24h" in data:
+                            entry["high"] = float(data["highPrice24h"])
+                        if "lowPrice24h" in data:
+                            entry["low"] = float(data["lowPrice24h"])
+                        if "prevPrice24h" in data:
+                            entry["open"] = float(data["prevPrice24h"])
+                        if "price24hPcnt" in data:
+                            entry["change24h"] = float(data["price24hPcnt"]) * 100
+                        if "turnover24h" in data:
+                            entry["volume"] = float(data["turnover24h"])
+
+                        entry["symbol"] = sym
+                        _prices[sym] = entry
+
                     except Exception:
                         pass  # skip malformed message
 
         except Exception as e:
-            logger.warning("Binance WS disconnected: %s — reconnecting in 5s", e)
+            logger.warning("Bybit WS disconnected: %s — reconnecting in 5s", e)
             await asyncio.sleep(5)
 
 
@@ -118,6 +136,6 @@ async def _broadcast_loop() -> None:
 async def start(symbols: list[str]) -> list[asyncio.Task]:
     """Start both background tasks. Returns tasks so lifespan can cancel them."""
     return [
-        asyncio.create_task(_binance_listener(symbols)),
+        asyncio.create_task(_bybit_listener(symbols)),
         asyncio.create_task(_broadcast_loop()),
     ]
