@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { initTelegram, getTelegramUser } from './utils/telegram';
 import { api } from './utils/api';
@@ -14,6 +14,8 @@ import { LangProvider } from './i18n/LangContext';
 import './index.css';
 
 export default function App() {
+  const [ready, setReady] = useState(false);
+
   useEffect(() => {
     initTelegram();
 
@@ -24,8 +26,21 @@ export default function App() {
     api.post('/api/auth/register', {
       user: tgUser ?? { id: 1, username: 'devuser', first_name: 'Dev' },
       referral_code: referralCode,
-    }).catch(() => {});
+    })
+      .catch(() => {})
+      .finally(() => setReady(true));
   }, []);
+
+  if (!ready) {
+    return (
+      <LangProvider>
+        <Background />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+          <div className="spinner" />
+        </div>
+      </LangProvider>
+    );
+  }
 
   return (
     <LangProvider>
