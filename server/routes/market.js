@@ -1,5 +1,4 @@
 const router = require('express').Router();
-const { validateTelegramInitData } = require('../middleware/auth');
 
 // 1-minute server-side cache
 let cache = { data: null, ts: 0 };
@@ -32,7 +31,7 @@ function getMockData() {
   };
 }
 
-router.get('/', validateTelegramInitData, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const now = Date.now();
     if (cache.data && now - cache.ts < CACHE_TTL) {
