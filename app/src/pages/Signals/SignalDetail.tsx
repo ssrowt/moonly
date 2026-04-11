@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../utils/api';
 import { hapticFeedback } from '../../utils/telegram';
 import { useLang } from '../../i18n/LangContext';
-import { useMemo } from 'react';
 import type { Signal } from '../../types';
 import './Signals.css';
 

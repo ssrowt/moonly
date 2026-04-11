@@ -86,7 +86,7 @@ export default function SignalsList() {
       ) : (
         <div className="signals-list">
           {signals.map((signal, i) => (
-            <LiveSignalCard key={`${signal.symbol}-${i}`} signal={signal} T={T} />
+            <LiveSignalCard key={`${signal.symbol}-${i}`} signal={signal} T={T} lang={lang} />
           ))}
         </div>
       )}
@@ -94,7 +94,7 @@ export default function SignalsList() {
   );
 }
 
-function LiveSignalCard({ signal, T }: { signal: LiveSignal; T: any }) {
+function LiveSignalCard({ signal, T, lang }: { signal: LiveSignal; T: any; lang: string }) {
   const isBuy = signal.trend === 'BUY';
   const [expanded, setExpanded] = useState(false);
 
