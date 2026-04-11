@@ -1,6 +1,6 @@
 """
-Bybit data source (replaces Binance).
-Fetches OHLCV klines from Bybit v5 public API — no API key required.
+OKX data source (public, no API key required, cloud-friendly).
+Fetches OHLCV klines from OKX v5 market API.
 """
 
 import asyncio
@@ -11,7 +11,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-BYBIT_BASE = "https://api.bybit.com"
+OKX_BASE = "https://www.okx.com"
 
 TOP_40_SYMBOLS = [
     "BTCUSDT",   "ETHUSDT",   "BNBUSDT",   "SOLUSDT",   "XRPUSDT",
@@ -21,43 +21,49 @@ TOP_40_SYMBOLS = [
     "INJUSDT",   "RUNEUSDT",  "SUIUSDT",   "SEIUSDT",   "TIAUSDT",
     "WLDUSDT",   "FETUSDT",   "RENDERUSDT","IMXUSDT",   "GALAUSDT",
     "SANDUSDT",  "MANAUSDT",  "AXSUSDT",   "HBARUSDT",  "ALGOUSDT",
-    "FLOWUSDT",  "APEUSDT",   "GMTUSDT",   "FTMUSDT",   "1000SHIBUSDT",
+    "FLOWUSDT",  "APEUSDT",   "GMTUSDT",   "FTMUSDT",   "SHIBUSDT",
 ]
+
+
+def _to_okx(symbol: str) -> str:
+    """Convert BTCUSDT → BTC-USDT for OKX instId format."""
+    base = symbol.replace("USDT", "")
+    return f"{base}-USDT"
 
 
 async def get_klines(
     client: httpx.AsyncClient,
     symbol: str,
-    interval: str = "15",
+    interval: str = "15m",
     limit: int = 120,
 ) -> Optional[list[dict]]:
     """
-    Fetch OHLCV candles from Bybit v5.
-    Bybit returns newest-first — we reverse to oldest-first for the algorithm.
+    Fetch OHLCV candles from OKX v5.
+    OKX returns newest-first — we reverse to oldest-first for the algorithm.
+    Response: [ts, open, high, low, close, vol, volCcy, volCcyQuote, confirm]
     """
     try:
         resp = await client.get(
-            f"{BYBIT_BASE}/v5/market/kline",
+            f"{OKX_BASE}/api/v5/market/candles",
             params={
-                "category": "linear",
-                "symbol":   symbol,
-                "interval": interval,
-                "limit":    limit,
+                "instId": _to_okx(symbol),
+                "bar":    interval,
+                "limit":  limit,
             },
             timeout=10.0,
         )
         resp.raise_for_status()
         body = resp.json()
 
-        if body.get("retCode") != 0:
-            logger.warning("Bybit error for %s: %s", symbol, body.get("retMsg"))
+        if body.get("code") != "0":
+            logger.warning("OKX error for %s: %s", symbol, body.get("msg"))
             return None
 
-        raw = body["result"]["list"]  # [[time, open, high, low, close, volume, turnover], ...]
+        raw = body.get("data", [])
         if len(raw) < 50:
             return None
 
-        # Bybit returns newest first — reverse to oldest first
+        # OKX returns newest first — reverse to oldest first
         raw = list(reversed(raw))
 
         return [
@@ -71,16 +77,16 @@ async def get_klines(
             for c in raw
         ]
     except httpx.HTTPStatusError as e:
-        logger.warning("Bybit HTTP error for %s: %s", symbol, e.response.status_code)
+        logger.warning("OKX HTTP error for %s: %s", symbol, e.response.status_code)
         return None
     except Exception as e:
-        logger.warning("Bybit fetch error for %s: %s", symbol, e)
+        logger.warning("OKX fetch error for %s: %s", symbol, e)
         return None
 
 
 async def fetch_all_candles(
     symbols: list[str] = TOP_40_SYMBOLS,
-    interval: str = "15",
+    interval: str = "15m",
     limit: int = 120,
 ) -> dict[str, list[dict]]:
     """

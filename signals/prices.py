@@ -1,11 +1,5 @@
 """
-Live price streaming via Bybit WebSocket v5 public tickers.
-
-Architecture:
-  _bybit_listener()   — connects to Bybit WS, writes updates to _prices dict
-  _broadcast_loop()   — every second, pushes full snapshot to connected clients
-  REST GET /prices    — instant snapshot from cache (no WS required by clients)
-  WS  /ws/prices      — push-based: sends snapshot every second to connected clients
+Live price streaming via OKX WebSocket v5 public tickers.
 """
 
 import asyncio
@@ -18,21 +12,18 @@ from fastapi import WebSocket
 
 logger = logging.getLogger("moonly.prices")
 
-BYBIT_WS = "wss://stream.bybit.com/v5/public/linear"
+OKX_WS = "wss://ws.okx.com:8443/ws/v5/public"
+
 
 # ─── Shared state ─────────────────────────────────────────────────────────────
 
-# {BTCUSDT: {symbol, price, open, high, low, change24h, volume}}
 _prices: dict[str, dict] = {}
-
-# FastAPI WebSocket clients waiting for live updates
 _clients: set[WebSocket] = set()
 
 
 # ─── Public helpers ───────────────────────────────────────────────────────────
 
 def snapshot() -> list[dict]:
-    """Return current price snapshot for all symbols (sorted by symbol)."""
     return sorted(_prices.values(), key=lambda x: x["symbol"])
 
 
@@ -48,94 +39,82 @@ def remove_client(ws: WebSocket) -> None:
     _clients.discard(ws)
 
 
+def _to_okx(symbol: str) -> str:
+    base = symbol.replace("USDT", "")
+    return f"{base}-USDT"
+
+
 # ─── Background tasks ─────────────────────────────────────────────────────────
 
-async def _bybit_listener(symbols: list[str]) -> None:
+async def _okx_listener(symbols: list[str]) -> None:
     """
-    Connects to Bybit v5 public linear WebSocket.
-    Subscribes to tickers for all symbols, writes updates into _prices dict.
-    Reconnects automatically on any error.
+    Connects to OKX v5 public WebSocket.
+    Subscribes to tickers for all symbols.
     """
-    args = [f"tickers.{s}" for s in symbols]
+    args = [{"channel": "tickers", "instId": _to_okx(s)} for s in symbols]
 
     while True:
         try:
             async with websockets.connect(
-                BYBIT_WS,
+                OKX_WS,
                 ping_interval=20,
                 ping_timeout=10,
                 open_timeout=15,
             ) as ws:
-                # Subscribe to all tickers in one message
                 await ws.send(json.dumps({"op": "subscribe", "args": args}))
-                logger.info("Bybit WS connected — tracking %d symbols", len(symbols))
+                logger.info("OKX WS connected — tracking %d symbols", len(symbols))
 
                 async for raw in ws:
                     try:
                         msg = json.loads(raw)
 
-                        # Skip subscription confirmations and heartbeats
-                        if "topic" not in msg:
+                        if msg.get("event"):   # subscribe confirmation / error
                             continue
 
-                        data = msg.get("data", {})
-                        sym = data.get("symbol")
-                        if not sym:
+                        data_list = msg.get("data")
+                        if not data_list:
                             continue
 
-                        # For delta messages, only update fields that are present
-                        entry = _prices.get(sym, {"symbol": sym})
+                        for data in data_list:
+                            inst_id = data.get("instId", "")
+                            if not inst_id.endswith("-USDT"):
+                                continue
 
-                        if "lastPrice" in data:
-                            entry["price"] = float(data["lastPrice"])
-                        if "highPrice24h" in data:
-                            entry["high"] = float(data["highPrice24h"])
-                        if "lowPrice24h" in data:
-                            entry["low"] = float(data["lowPrice24h"])
-                        if "prevPrice24h" in data:
-                            entry["open"] = float(data["prevPrice24h"])
-                        if "price24hPcnt" in data:
-                            entry["change24h"] = float(data["price24hPcnt"]) * 100
-                        if "turnover24h" in data:
-                            entry["volume"] = float(data["turnover24h"])
-
-                        entry["symbol"] = sym
-                        _prices[sym] = entry
-
+                            sym = inst_id.replace("-", "")   # BTC-USDT → BTCUSDT
+                            _prices[sym] = {
+                                "symbol":    sym,
+                                "price":     float(data.get("last", 0)),
+                                "open":      float(data.get("open24h", 0)),
+                                "high":      float(data.get("high24h", 0)),
+                                "low":       float(data.get("low24h", 0)),
+                                "change24h": float(data.get("sodUtc8", 0)),
+                                "volume":    float(data.get("volCcy24h", 0)),
+                            }
                     except Exception:
-                        pass  # skip malformed message
+                        pass
 
         except Exception as e:
-            logger.warning("Bybit WS disconnected: %s — reconnecting in 5s", e)
+            logger.warning("OKX WS disconnected: %s — reconnecting in 5s", e)
             await asyncio.sleep(5)
 
 
 async def _broadcast_loop() -> None:
-    """
-    Every second: sends the full price snapshot to all connected FastAPI WS clients.
-    Dead connections are cleaned up automatically.
-    """
     while True:
         await asyncio.sleep(1)
-
         if not _clients or not _prices:
             continue
-
         msg = json.dumps({"type": "prices", "data": snapshot()})
         dead: set[WebSocket] = set()
-
         for client in list(_clients):
             try:
                 await client.send_text(msg)
             except Exception:
                 dead.add(client)
-
         _clients.difference_update(dead)
 
 
 async def start(symbols: list[str]) -> list[asyncio.Task]:
-    """Start both background tasks. Returns tasks so lifespan can cancel them."""
     return [
-        asyncio.create_task(_bybit_listener(symbols)),
+        asyncio.create_task(_okx_listener(symbols)),
         asyncio.create_task(_broadcast_loop()),
     ]
