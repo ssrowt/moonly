@@ -1,279 +1,190 @@
 """
-Signal generation logic for Moonly.
-
-Score scale: 0–100 internally, divided by 10 for API output (0–10).
-  trend    : 0 / 10 / 20 / 30
-  impulse  : 0 / 15 / 25
-  fvg      : 0 / 25
-  rsi      : 0 / 10
-  strength : 0 / 3 / 7 / 10
-
-Winrate: min(90, 45 + internal_score * 0.5)
+Signal generation: combines H1 trend + M15 zones → signal with entry, SL, TP, score.
 """
-
-import copy
 import logging
-from typing import Optional
+from typing import List, Optional, Dict
+from analysis import get_h1_trend, find_fvg, find_order_block, calc_rsi, calc_momentum
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("moonly.signals")
 
-# ─── Technical indicators ──────────────────────────────────────────────────────
+I_C = 4  # close index
 
-def _sma(closes: list[float], period: int) -> Optional[float]:
-    if len(closes) < period:
+
+def _calc_winrate(score: int) -> int:
+    """Score → realistic winrate 45-70%."""
+    base = 47
+    rate = base + (score - 5) * 2.5
+    return int(max(45, min(70, rate)))
+
+
+def _make_analysis(direction: str, h1_trend: str, fvg, ob, rsi: float) -> str:
+    zones = []
+    if fvg:
+        zones.append("FVG")
+    if ob:
+        zones.append("OB")
+    zone_str = " + ".join(zones) if zones else "zone"
+    rsi_str = "RSI supportive" if (direction == "BUY" and rsi < 45) or (direction == "SELL" and rsi > 55) else f"RSI {rsi:.0f}"
+    confluence = "confluence " if fvg and ob else ""
+    return f"H1 trend {h1_trend}, {direction} {confluence}{zone_str} retest, {rsi_str}."
+
+
+def generate_signal(symbol: str, h1_candles: List, m15_candles: List) -> Optional[Dict]:
+    try:
+        return _generate(symbol, h1_candles, m15_candles)
+    except Exception as exc:
+        logger.warning("Signal error [%s]: %s", symbol, exc)
         return None
-    return sum(closes[-period:]) / period
 
 
-def _rsi(closes: list[float], period: int = 14) -> Optional[float]:
-    """Simple RSI (non-smoothed). Requires at least period+1 closes."""
-    if len(closes) < period + 1:
+def _generate(symbol: str, h1_candles: List, m15_candles: List) -> Optional[Dict]:
+    # ── H1 trend ──────────────────────────────────────────────────────────────
+    h1 = get_h1_trend(h1_candles)
+    if h1["is_sideways"]:
         return None
-    deltas = [closes[i] - closes[i - 1] for i in range(1, len(closes))]
-    recent = deltas[-period:]
-    gains = [d for d in recent if d > 0]
-    losses = [-d for d in recent if d < 0]
-    avg_gain = sum(gains) / period if gains else 0.0
-    avg_loss = sum(losses) / period if losses else 0.0
-    if avg_loss == 0:
-        return 100.0
-    rs = avg_gain / avg_loss
-    return 100.0 - 100.0 / (1.0 + rs)
 
+    direction = "BUY" if h1["trend"] == "UP" else "SELL"
+    current_price = m15_candles[-1][I_C]
 
-# ─── Signal components ─────────────────────────────────────────────────────────
+    # ── M15 zones ─────────────────────────────────────────────────────────────
+    fvg = find_fvg(m15_candles, direction)
+    ob = find_order_block(m15_candles, direction)
 
-def _trend(closes: list[float]) -> tuple[Optional[str], int]:
-    """
-    Returns (direction, score).
-    direction: 'BUY' | 'SELL' | None
-    score: 0, 10, 20, or 30
-    """
-    sma20 = _sma(closes, 20)
-    sma50 = _sma(closes, 50)
-    if sma20 is None or sma50 is None:
-        return None, 0
+    if not fvg and not ob:
+        return None
 
-    diff_pct = abs(sma20 - sma50) / sma50 * 100
-    if diff_pct < 0.2:
-        return None, 0   # sideways — ignore
-
-    direction = "BUY" if sma20 > sma50 else "SELL"
-    if diff_pct >= 1.0:
-        score = 30
-    elif diff_pct >= 0.5:
-        score = 20
+    # ── Best zone ─────────────────────────────────────────────────────────────
+    if fvg and ob:
+        # Try overlap (confluence)
+        ol_low = max(fvg["low"], ob["low"])
+        ol_high = min(fvg["high"], ob["high"])
+        if ol_low < ol_high:
+            zone_low, zone_high = ol_low, ol_high
+            zone_type = "confluence_fvg_ob"
+        else:
+            # Average the two zones
+            zone_low = (fvg["low"] + ob["low"]) / 2
+            zone_high = (fvg["high"] + ob["high"]) / 2
+            zone_type = "fvg_ob"
+    elif fvg:
+        zone_low, zone_high = fvg["low"], fvg["high"]
+        zone_type = fvg["type"]
     else:
-        score = 10
-    return direction, score
+        zone_low, zone_high = ob["low"], ob["high"]
+        zone_type = ob["type"]
 
-
-def _impulse(candles: list[dict]) -> tuple[bool, int]:
-    """
-    5-candle momentum check.
-    Returns (has_impulse, score 0/15/25).
-    """
-    if len(candles) < 6:
-        return False, 0
-    pct = abs(candles[-1]["close"] - candles[-6]["close"]) / candles[-6]["close"] * 100
-    if pct < 0.5:
-        return False, 0
-    return True, (25 if pct >= 1.0 else 15)
-
-
-def _fvg(candles: list[dict]) -> tuple[bool, Optional[str], float, float]:
-    """
-    Classic 3-candle Fair Value Gap.
-    Bullish : candles[-1].low  > candles[-3].high  → gap zone = [c1.high, c3.low]
-    Bearish : candles[-1].high < candles[-3].low   → gap zone = [c3.high, c1.low]
-    Returns (has_fvg, direction, zone_low, zone_high).
-    """
-    if len(candles) < 3:
-        return False, None, 0.0, 0.0
-    c1, c3 = candles[-3], candles[-1]
-    if c3["low"] > c1["high"]:
-        return True, "BUY", c1["high"], c3["low"]
-    if c3["high"] < c1["low"]:
-        return True, "SELL", c3["high"], c1["low"]
-    return False, None, 0.0, 0.0
-
-
-def _retest_ok(price: float, zone_low: float, zone_high: float) -> bool:
-    """
-    Price must be within the FVG zone or no more than 2% from its midpoint.
-    """
-    if zone_low <= price <= zone_high:
-        return True
-    mid = (zone_low + zone_high) / 2
-    return abs(price - mid) / mid * 100 <= 2.0
-
-
-def _strength(candles: list[dict]) -> int:
-    """Volume strength vs 20-candle average. Score: 0 / 3 / 7 / 10."""
-    if len(candles) < 20:
-        return 5
-    recent_avg = sum(c["volume"] for c in candles[-5:]) / 5
-    baseline   = sum(c["volume"] for c in candles[-20:]) / 20
-    if baseline == 0:
-        return 5
-    ratio = recent_avg / baseline
-    if ratio >= 1.5:
-        return 10
-    if ratio >= 1.0:
-        return 7
-    return 3
-
-
-# ─── AI analysis text (DELUXE only) ──────────────────────────────────────────
-
-def _ai_text(sig: dict) -> str:
-    sym       = sig["symbol"].replace("USDT", "").replace("1000", "")
-    direction = sig["trend"]
-    rsi       = sig["rsi"]
-    score     = sig["score"]
-    entry     = sig["entry"]
-
-    trend_word  = "восходящий" if direction == "BUY" else "нисходящий"
-    rsi_state   = "перепродан" if rsi < 45 else "перекуплен"
-    action      = "покупку" if direction == "BUY" else "продажу"
-    strength    = "сильный" if score >= 8 else ("умеренный" if score >= 6 else "слабый")
-
-    return (
-        f"{sym}: {strength} сигнал на {action}. "
-        f"Тренд {trend_word} (SMA20 / SMA50). "
-        f"RSI {rsi:.1f} — {rsi_state}. "
-        f"FVG зона [{entry:.6g}], ретест подтверждён. "
-        f"TP: {sig['tp']:.6g} | SL: {sig['sl']:.6g}."
-    )
-
-
-# ─── Main signal generator ─────────────────────────────────────────────────────
-
-def generate_signal(symbol: str, candles: list[dict]) -> Optional[dict]:
-    """
-    Two-tier signal pipeline:
-      Strict  — all original conditions met → is_risky=False
-      Relaxed — loosened RSI/retest conditions → is_risky=True (shown with risk warning)
-      None    — doesn't meet even relaxed conditions → filtered out
-    """
-    if len(candles) < 120:
+    # Zone must be valid
+    if zone_low >= zone_high:
         return None
 
-    closes        = [c["close"] for c in candles]
-    current_price = closes[-1]
-
-    # 1. Trend (required in both tiers)
-    direction, trend_score = _trend(closes)
-    if direction is None:
+    # ── Retest check ──────────────────────────────────────────────────────────
+    zone_mid = (zone_low + zone_high) / 2
+    dist = abs(current_price - zone_mid) / current_price
+    if dist > 0.015:
         return None
 
-    # 2. Impulse (required in both tiers)
-    has_impulse, impulse_score = _impulse(candles)
-    if not has_impulse:
+    # Price must not have blown through the zone
+    if direction == "BUY" and current_price < zone_low * 0.99:
+        return None
+    if direction == "SELL" and current_price > zone_high * 1.01:
         return None
 
-    # 3. FVG — optional but scored (bonus if present and direction matches)
-    has_fvg, fvg_dir, zone_low, zone_high = _fvg(candles)
-    fvg_aligned = has_fvg and fvg_dir == direction
-
-    # 4. RSI filter
-    rsi = _rsi(closes)
-    if rsi is None:
-        return None
-
-    # Strict RSI thresholds
-    rsi_strict = (direction == "BUY" and rsi < 45) or (direction == "SELL" and rsi > 55)
-    # Relaxed RSI thresholds
-    rsi_ok     = (direction == "BUY" and rsi < 65) or (direction == "SELL" and rsi > 35)
-    if not rsi_ok:
-        return None  # completely outside acceptable range
-
-    # 5. Retest (only meaningful if FVG present)
-    retest_ok = fvg_aligned and _retest_ok(current_price, zone_low, zone_high)
-
-    # Determine risk level:
-    # strict = FVG aligned + retest confirmed + RSI in strict zone
-    # risky  = any of those conditions relaxed or absent
-    is_risky = not (rsi_strict and fvg_aligned and retest_ok)
-
-    # ─── Score (0–100 internally) ──────────────────────────────────────────────
-    fvg_score = 25 if retest_ok else (12 if fvg_aligned else 0)
-    rsi_score = 10 if rsi_strict else 5
-
-    internal_score = (
-        trend_score       # 0–30
-        + impulse_score   # 0–25
-        + fvg_score       # 0, 12, or 25
-        + rsi_score       # 5 or 10
-        + _strength(candles)  # 0–10
-    )
-
-    display_score = round(internal_score / 10, 1)   # 0–10
-    if display_score < 5.0:
-        return None
-
-    # Risky signals get a winrate penalty
-    winrate = min(90.0, round(45.0 + internal_score * 0.5, 1))
-    if is_risky:
-        winrate = round(winrate * 0.85, 1)
-
-    # ─── Entry / TP / SL ──────────────────────────────────────────────────────
-    if retest_ok:
-        entry = round((zone_low + zone_high) / 2, 8)
-    else:
-        entry = round(current_price, 8)
+    # ── Entry / SL / TP ───────────────────────────────────────────────────────
+    entry = zone_mid
+    buffer = (zone_high - zone_low) * 0.15
 
     if direction == "BUY":
-        sl = round(entry * 0.98, 8)
-        tp = round(entry * 1.04, 8)
+        sl = zone_low - buffer
+        risk = entry - sl
+        tp = entry + risk * 2
     else:
-        sl = round(entry * 1.02, 8)
-        tp = round(entry * 0.96, 8)
+        sl = zone_high + buffer
+        risk = sl - entry
+        tp = entry - risk * 2
+
+    if risk <= 0:
+        return None
+
+    rr = risk * 2 / risk  # always 2.0 exactly
+    # Sanity-check tp direction
+    if direction == "BUY" and tp <= entry:
+        return None
+    if direction == "SELL" and tp >= entry:
+        return None
+
+    # ── RSI + Momentum ────────────────────────────────────────────────────────
+    rsi = calc_rsi(m15_candles)
+    momentum = calc_momentum(m15_candles)
+
+    # ── Score ─────────────────────────────────────────────────────────────────
+    score = 0
+    score += 2  # H1 trend matches (always)
+    score += 1  # no sideways (always)
+    if fvg:
+        score += 2
+    if ob:
+        score += 2
+    if fvg and ob:
+        score += 1  # confluence bonus
+
+    # Retest quality
+    if dist < 0.005:
+        score += 1
+
+    # RSI
+    if (direction == "BUY" and rsi < 45) or (direction == "SELL" and rsi > 55):
+        score += 1
+
+    # Momentum aligned
+    if (direction == "BUY" and momentum > 0) or (direction == "SELL" and momentum < 0):
+        score += 1
+
+    is_top = score >= 9
+    winrate = _calc_winrate(score)
+    analysis = _make_analysis(direction, h1["trend"], fvg, ob, rsi)
+
+    # is_risky: true if not all strict conditions met (for frontend badge)
+    rsi_strict = (direction == "BUY" and rsi < 45) or (direction == "SELL" and rsi > 55)
+    is_risky = not (fvg and ob and rsi_strict)
+
+    def fmt(v: float) -> float:
+        if v > 1000:
+            return round(v, 2)
+        if v > 1:
+            return round(v, 4)
+        return round(v, 6)
 
     return {
-        "symbol":    symbol,
-        "price":     round(current_price, 8),
-        "entry":     entry,
-        "tp":        tp,
-        "sl":        sl,
-        "score":     display_score,
-        "winrate":   winrate,
-        "trend":     direction,
-        "rsi":       round(rsi, 2),
-        "is_top":    display_score >= 8.0 and not is_risky,
-        "is_risky":  is_risky,
-        # ai_analysis filled only for deluxe in filter_for_plan()
+        "symbol": symbol,
+        "signal": direction,
+        "trend": direction,           # frontend compat
+        "current_price": fmt(current_price),
+        "price": fmt(current_price),  # frontend compat
+        "h1_trend": h1["trend"],
+        "zone_type": zone_type,
+        "entry_zone": [fmt(zone_low), fmt(zone_high)],
+        "entry": fmt(entry),
+        "tp": fmt(tp),
+        "sl": fmt(sl),
+        "rr": 2.0,
+        "score": score,
+        "winrate": winrate,
+        "is_top": is_top,
+        "is_fresh": True,
+        "is_risky": is_risky,
+        "rsi": rsi,
+        "analysis": analysis,
+        "ai_analysis": analysis,      # frontend compat
     }
 
 
-# ─── Plan-based filtering ─────────────────────────────────────────────────────
-
-_PLAN_CONFIG: dict[str, dict] = {
-    "free":   {"limit": 3,  "min": 5.0, "max": 7.9},
-    "pro":    {"limit": 10, "min": 6.0, "max": 9.9},
-    "deluxe": {"limit": 40, "min": 5.0, "max": 10.0},
-}
-
-
-def filter_for_plan(signals: list[dict], plan: str) -> list[dict]:
+def filter_for_plan(signals: List[Dict], plan: str) -> List[Dict]:
     """
-    Filter and cap the signal list for a given subscription plan.
-    Adds ai_analysis only for DELUXE; strips it for others.
+    FREE   → first 3 signals
+    PRO    → all signals
+    DELUXE → all signals (same as PRO, different duration)
     """
-    cfg = _PLAN_CONFIG.get(plan, _PLAN_CONFIG["free"])
-
-    filtered = [
-        copy.copy(s) for s in signals
-        if cfg["min"] <= s["score"] <= cfg["max"]
-    ]
-
-    # Top signals first, then by score
-    filtered.sort(key=lambda s: (s["is_top"], s["score"]), reverse=True)
-    result = filtered[: cfg["limit"]]
-
-    for sig in result:
-        if plan == "deluxe":
-            sig["ai_analysis"] = _ai_text(sig)
-        # no ai_analysis key for free/pro — keeps response lean
-
-    return result
+    plan = plan.lower()
+    if plan == "free":
+        return signals[:3]
+    return signals  # pro and deluxe get everything
